@@ -29,8 +29,8 @@ p_load("tm",
        "ggraph",
        "gt")
 
-#setwd("/Users/betinacortes/Desktop/Repositorio_taller3")
-setwd("C:/Users/Yilmer Palacios/Desktop/Repositorios GitHub/Repositorio_Taller4")
+setwd("/Users/betinacortes/Desktop/Repositorio_Taller4")
+# setwd("C:/Users/Yilmer Palacios/Desktop/Repositorios GitHub/Repositorio_Taller4")
 
 
 # Importing Dataset ----
