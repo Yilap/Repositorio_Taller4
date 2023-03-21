@@ -160,3 +160,45 @@ jpeg("Views/wordcloud_petro.jpeg", width = 800, height = 800)
 crear_wordcloud(bag_of_words_petro, c("#9e9ac8", "#54278f"))
 dev.off()
 
+
+### TF-IDF ----
+
+## Hacemos conteo de la aparición de las palabras para cada político
+## Cabe resaltar que aun no se ha aplicado el stopword
+trainWords <- train |> 
+  unnest_tokens(output = word, input = text) |> 
+  count(name, word, sort = TRUE)
+
+
+## Calculamos total de palabras por autor.
+totalWords <- trainWords |> 
+  group_by(name) |> 
+  summarize(total = sum(n))
+
+## Agregamos el numero total de palabras a la data original para construir TFIDF
+trainWords <- trainWords |>  left_join(totalWords) |> 
+  filter(!is.na(name)) |> 
+  bind_tf_idf(word, name, n)
+
+plot_trainWords <- trainWords |> 
+  arrange(desc(tf_idf)) |> 
+  mutate(word = factor(word, levels = rev(unique(word))))
+
+
+## Graficamos palabras con mayor TFIDF
+plot_trainWords |> 
+  top_n(20) |> 
+  ggplot(aes(word, tf_idf)) +
+  geom_col() +
+  labs(title = "Top 20 palabras por TF-IDF", x = NULL, y = "TF-IDF") +
+  coord_flip() +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    plot.title.position = "plot",
+    plot.background = element_rect(fill = "white", color = "white")
+  )
+
+ggsave("Views/Top_20_TFIDF.png", width = 1500, height = 1500, units = "px")
+
+
