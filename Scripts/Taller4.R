@@ -491,50 +491,67 @@ levels(finalTermsTrain$name) <- make.names(unique(finalTermsTrain$name))
 
 ## Empezamos a ejecutar modelos:
 
+## Random Forest
+# define the tuning grid
+tune_grid <- expand.grid(mtry = c(2, 4, 6, 8, 10),
+                         splitrule = c("gini", "extratrees"),
+                         min.node.size = c(1, 5, 10))
 
-### Random Forest ----
+# set up the cross-validation and tuning
+ctrl <- trainControl(method = "cv",
+                     number = 3,
+                     verboseIter = TRUE,
+                     classProbs = TRUE) # enable class probabilities
+
+# train the model with hyperparameters tuning
 rf_clf <- caret::train(
   name ~ .,
   data = finalTermsTrain,
   method = "ranger",
-  trControl = trainControl(
-    method = "cv",
-    number = 3,
-    verboseIter = TRUE
-  )
+  trControl = ctrl,
+  tuneGrid = tune_grid,
+  metric = "Accuracy" # maximize accuracy
 )
 
-# saveRDS(rf_clf, "Stores/random_forest.rds")
+# save the best model to disk
+saveRDS(rf_clf, "Models/random_forest_tuned.rds")
 
 rf_pred <- data.frame(
   id = test$id,
   name = predict(rf_clf, finalTermsTest, type = "raw")
 )
 
-# write_csv(rf_pred, "Stores/random_forest.csv")
+write_csv(rf_pred, "Resultado/random_foresttuned.csv")
 
 ## XGBoost
+# define the tuning grid
+tune_grid <- expand.grid(nrounds = c(50, 100, 150),
+                         eta = c(0.01, 0.1),
+                         max_depth = c(3, 5, 7),
+                         subsample = c(0.5, 0.7, 1),
+                         colsample_bytree = c(0.5, 0.7, 1))
 
+# set up the cross-validation and tuning
+ctrl <- trainControl(method = "cv",
+                     number = 3,
+                     verboseIter = TRUE,
+                     classProbs = TRUE) # enable class probabilities
+
+# train the model with hyperparameters tuning
 xgb_clf <- caret::train(
   name ~ .,
   data = finalTermsTrain,
   method = "xgbTree",
-  trControl = trainControl(
-    method = "cv",
-    number = 3,
-    verboseIter = TRUE
-  ),
-  na.action = na.pass
+  trControl = ctrl,
+  tuneGrid = tune_grid,
+  metric = "Accuracy", # maximize accuracy
+  verbose = FALSE, # disable verbose output to keep the console clean
+  preProc = c("center", "scale"), # apply centering and scaling to the data
+  importance = TRUE, # compute variable importance
+  tuneLength = 10 # set the maximum number of tuning grid combinations to evaluate
 )
 
-saveRDS(xgb_clf, "Stores/xgboost.rds")
-
-xgb_pred <- data.frame(
-  id = test$id,
-  name = predict(xgb_clf, finalTermsTest, type = "raw")
-)
-
-# write_csv(xgb_pred, "Stores/xgboost.csv")
+write_csv(xgb_pred, "Resultado/xgboost.csv")
 
 ## Naive Bayes
 
@@ -550,16 +567,21 @@ nb_clf <- caret::train(
   na.action = na.pass
 )
 
-saveRDS(nb_clf, "Stores/naive_bayes.rds")
+saveRDS(nb_clf, "Models/naive_bayes.rds")
 
 nb_pred <- data.frame(
   id = test$id,
   name = predict(nb_clf, finalTermsTest, type = "raw")
 )
 
-write_csv(nb_pred, "Stores/naive_bayes.csv")
+write_csv(nb_pred, "Resultado/naive_bayes.csv")
 
 ## Multinomial Logistic Regression Model
+
+glmnet_grid <- expand.grid(
+  alpha = seq(0, 1, 0.1),
+  lambda = c(0, 0.001, 0.01, 0.1, 1)
+)
 
 glmnet_clf <- caret::train(
   name ~ .,
@@ -570,17 +592,18 @@ glmnet_clf <- caret::train(
     number = 3,
     verboseIter = TRUE
   ),
+  tuneGrid = glmnet_grid,
   na.action = na.pass
 )
 
-saveRDS(glmnet_clf, "Stores//glmnet.rds")
+saveRDS(glmnet_clf, "Models/glmnet.rds")
 
 glmnet_pred <- data.frame(
   id = test$id,
   name = predict(glmnet_clf, as.matrix(finalTermsTest), type = "raw")
 )
 
-write_csv(glmnet_pred, "Stores//glmnet.csv")
+write_csv(glmnet_pred, "Resultado/glmnet.csv")
 
 
 ## Redes Neuronales
