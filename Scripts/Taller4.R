@@ -586,6 +586,14 @@ write_csv(glmnet_pred, "Resultado/glmnet.csv")
 ## Redes Neuronales
 ## Trabajaremos la red Neuronal en Google, pero antes, preparamos la data Colab
 
+tf_idf_reducido <- finalTermsTrain
+tf_idf_reducido <- subset(tf_idf_reducido, select = -name)
 
+data_clean <- finalTermsTrain
+data_clean <- subset(data_clean, select = name)
+
+
+save(data_clean, tf_idf_reducido, 
+     file = "Stores/datos_para_modelar.RData")
 
 
