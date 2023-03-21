@@ -514,14 +514,14 @@ rf_clf <- caret::train(
 )
 
 # save the best model to disk
-saveRDS(rf_clf, "Models/random_forest_tuned.rds")
+saveRDS(rf_clf, "Stores/random_forest_tuned.rds")
 
 rf_pred <- data.frame(
   id = test$id,
   name = predict(rf_clf, finalTermsTest, type = "raw")
 )
 
-write_csv(rf_pred, "Resultado/random_foresttuned.csv")
+write_csv(rf_pred, "Stores/random_foresttuned.csv")
 
 ## XGBoost
 # define the tuning grid
@@ -551,7 +551,7 @@ xgb_clf <- caret::train(
   tuneLength = 10 # set the maximum number of tuning grid combinations to evaluate
 )
 
-write_csv(xgb_pred, "Resultado/xgboost.csv")
+write_csv(xgb_pred, "Stores/xgboost.csv")
 
 ## Naive Bayes
 
@@ -567,14 +567,14 @@ nb_clf <- caret::train(
   na.action = na.pass
 )
 
-saveRDS(nb_clf, "Models/naive_bayes.rds")
+saveRDS(nb_clf, "Stores/naive_bayes.rds")
 
 nb_pred <- data.frame(
   id = test$id,
   name = predict(nb_clf, finalTermsTest, type = "raw")
 )
 
-write_csv(nb_pred, "Resultado/naive_bayes.csv")
+write_csv(nb_pred, "Stores/naive_bayes.csv")
 
 ## Multinomial Logistic Regression Model
 
@@ -596,14 +596,14 @@ glmnet_clf <- caret::train(
   na.action = na.pass
 )
 
-saveRDS(glmnet_clf, "Models/glmnet.rds")
+saveRDS(glmnet_clf, "Stores/glmnet.rds")
 
 glmnet_pred <- data.frame(
   id = test$id,
   name = predict(glmnet_clf, as.matrix(finalTermsTest), type = "raw")
 )
 
-write_csv(glmnet_pred, "Resultado/glmnet.csv")
+write_csv(glmnet_pred, "Stores/glmnet.csv")
 
 
 ## Redes Neuronales
