@@ -491,67 +491,50 @@ levels(finalTermsTrain$name) <- make.names(unique(finalTermsTrain$name))
 
 ## Empezamos a ejecutar modelos:
 
-## Random Forest
-# define the tuning grid
-tune_grid <- expand.grid(mtry = c(2, 4, 6, 8, 10),
-                         splitrule = c("gini", "extratrees"),
-                         min.node.size = c(1, 5, 10))
+### Random Forest ----
 
-# set up the cross-validation and tuning
-ctrl <- trainControl(method = "cv",
-                     number = 3,
-                     verboseIter = TRUE,
-                     classProbs = TRUE) # enable class probabilities
-
-# train the model with hyperparameters tuning
 rf_clf <- caret::train(
   name ~ .,
   data = finalTermsTrain,
   method = "ranger",
-  trControl = ctrl,
-  tuneGrid = tune_grid,
-  metric = "Accuracy" # maximize accuracy
+  trControl = trainControl(
+    method = "cv",
+    number = 3,
+    verboseIter = TRUE
+  )
 )
 
-# save the best model to disk
-saveRDS(rf_clf, "Stores/random_forest_tuned.rds")
+# saveRDS(rf_clf, "Stores/random_forest.rds")
 
 rf_pred <- data.frame(
   id = test$id,
   name = predict(rf_clf, finalTermsTest, type = "raw")
 )
 
-write_csv(rf_pred, "Stores/random_foresttuned.csv")
+# write_csv(rf_pred, "Stores/random_forest.csv")
 
 ## XGBoost
-# define the tuning grid
-tune_grid <- expand.grid(nrounds = c(50, 100, 150),
-                         eta = c(0.01, 0.1),
-                         max_depth = c(3, 5, 7),
-                         subsample = c(0.5, 0.7, 1),
-                         colsample_bytree = c(0.5, 0.7, 1))
 
-# set up the cross-validation and tuning
-ctrl <- trainControl(method = "cv",
-                     number = 3,
-                     verboseIter = TRUE,
-                     classProbs = TRUE) # enable class probabilities
-
-# train the model with hyperparameters tuning
 xgb_clf <- caret::train(
   name ~ .,
   data = finalTermsTrain,
   method = "xgbTree",
-  trControl = ctrl,
-  tuneGrid = tune_grid,
-  metric = "Accuracy", # maximize accuracy
-  verbose = FALSE, # disable verbose output to keep the console clean
-  preProc = c("center", "scale"), # apply centering and scaling to the data
-  importance = TRUE, # compute variable importance
-  tuneLength = 10 # set the maximum number of tuning grid combinations to evaluate
+  trControl = trainControl(
+    method = "cv",
+    number = 3,
+    verboseIter = TRUE
+  ),
+  na.action = na.pass
 )
 
-write_csv(xgb_pred, "Stores/xgboost.csv")
+saveRDS(xgb_clf, "Stores/xgboost.rds")
+
+xgb_pred <- data.frame(
+  id = test$id,
+  name = predict(xgb_clf, finalTermsTest, type = "raw")
+)
+
+# write_csv(xgb_pred, "Stores/xgboost.csv")
 
 ## Naive Bayes
 
