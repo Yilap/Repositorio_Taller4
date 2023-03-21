@@ -388,3 +388,204 @@ create_bar_chart_positive_words(train, "Petro")
 ggsave("View/Top_20_contribuciones_sentimientos_Petro.png", width = 1500, height = 1500, units = "px")
 
 
+
+### intentamos obtener más información de los signos de puntuación para intentar
+### relacionar los políticos con un estilo de escritura, esto lo ingresamos a la data final para darle
+### más capacidad predictiva al modelo
+
+implement_fe <- function(dataset) {
+  dataset |> 
+    mutate(Ncommas = str_count(`text`, ",")) |> 
+    mutate(Nsemicolons = str_count(`text`, ";")) |> 
+    mutate(Ncolons = str_count(`text`, ":")) |> 
+    mutate(Nblank = str_count(`text`, " ")) |> 
+    mutate(Nother = str_count(`text`, "[\\.\\.]")) |> 
+    mutate(Ncapitalfirst = str_count(`text`," [A-Z][a-z]")) |> 
+    mutate(Ncapital = str_count(`text`, "[A-Z]"))
+}
+
+train_fe <- implement_fe(train)
+test_fe <- implement_fe(test)
+
+
+make_DTM <- function(train, tfidfFlag = T) {
+  
+  corpus = Corpus(VectorSource(train$text))
+  
+  # Pre-process data
+  corpus <- tm_map(corpus, tolower)
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords(kind = "es"))
+  corpus <- tm_map(corpus, stemDocument)
+  
+  if(tfidfFlag == 1 ) {
+    dtm = DocumentTermMatrix(corpus,control = list(weighting = weightTfIdf))
+  } else  {
+    dtm = DocumentTermMatrix(corpus)
+  }
+  
+  # Remove sparse terms
+  dtm = removeSparseTerms(dtm, 0.997)
+  
+  # Create data frame
+  labeledTerms = as.data.frame(as.matrix(dtm))
+  
+  return(labeledTerms)
+}
+
+
+make_features <- function(train) {
+  labeledTerms <- make_DTM(train, tfidfFlag = 0)
+  
+  features <- colnames(labeledTerms)
+  
+  for(f in features) {
+    if ((class(labeledTerms[[f]])=="factor") || (class(labeledTerms[[f]])=="character")) {
+      levels <- unique(labeledTerms[[f]])
+      labeledTerms[[f]] <- as.numeric(factor(labeledTerms[[f]], levels = levels))
+    }
+  }
+  
+  return(labeledTerms)
+}
+
+labeledTermsTrain <- make_features(train)
+
+labeledTermsTest <- make_features(test)
+
+colnamesSame <- intersect(colnames(labeledTermsTrain), colnames(labeledTermsTest))
+
+filteredTermsTrain <- labeledTermsTrain[, (colnames(labeledTermsTrain) %in% colnamesSame)]
+filteredTermsTest <- labeledTermsTest[, (colnames(labeledTermsTest) %in% colnamesSame)]
+
+
+
+### Incorporamos las caracteristicas creadas
+finalTermsTrain <- bind_cols(
+  filteredTermsTrain,
+  len = train$len,
+  Ncommas = train_fe$Ncommas,
+  Nsemicolons = train_fe$Nsemicolons,
+  Ncolons = train_fe$Ncolons,
+  Nblank = train_fe$Nblank,
+  Nother = train_fe$Nother,
+  Ncapitalfirst = train_fe$Ncapitalfirst,
+  Ncapital = train_fe$Ncapital
+)
+
+finalTermsTest <- bind_cols(
+  filteredTermsTest,
+  len = test$len,
+  Ncommas = test_fe$Ncommas,
+  Nsemicolons = test_fe$Nsemicolons,
+  Ncolons = test_fe$Ncolons,
+  Nblank = test_fe$Nblank,
+  Nother = test_fe$Nother,
+  Ncapitalfirst = test_fe$Ncapitalfirst,
+  Ncapital = test_fe$Ncapital
+)
+
+
+finalTermsTrain$name <- as.factor(train$name)
+levels(finalTermsTrain$name) <- make.names(unique(finalTermsTrain$name))
+
+## Empezamos a ejecutar modelos:
+
+
+### Random Forest ----
+rf_clf <- caret::train(
+  name ~ .,
+  data = finalTermsTrain,
+  method = "ranger",
+  trControl = trainControl(
+    method = "cv",
+    number = 3,
+    verboseIter = TRUE
+  )
+)
+
+# saveRDS(rf_clf, "Models/random_forest.rds")
+
+rf_pred <- data.frame(
+  id = test$id,
+  name = predict(rf_clf, finalTermsTest, type = "raw")
+)
+
+# write_csv(rf_pred, "Resultado/random_forest.csv")
+
+## XGBoost
+
+xgb_clf <- caret::train(
+  name ~ .,
+  data = finalTermsTrain,
+  method = "xgbTree",
+  trControl = trainControl(
+    method = "cv",
+    number = 3,
+    verboseIter = TRUE
+  ),
+  na.action = na.pass
+)
+
+saveRDS(xgb_clf, "Models/xgboost.rds")
+
+xgb_pred <- data.frame(
+  id = test$id,
+  name = predict(xgb_clf, finalTermsTest, type = "raw")
+)
+
+# write_csv(xgb_pred, "Resultado/xgboost.csv")
+
+## Naive Bayes
+
+nb_clf <- caret::train(
+  name ~ .,
+  data = finalTermsTrain,
+  method = "naive_bayes",
+  trControl = trainControl(
+    method = "cv",
+    number = 3,
+    verboseIter = TRUE
+  ),
+  na.action = na.pass
+)
+
+saveRDS(nb_clf, "Models/naive_bayes.rds")
+
+nb_pred <- data.frame(
+  id = test$id,
+  name = predict(nb_clf, finalTermsTest, type = "raw")
+)
+
+write_csv(nb_pred, "Resultado/naive_bayes.csv")
+
+## Multinomial Logistic Regression Model
+
+glmnet_clf <- caret::train(
+  name ~ .,
+  data = finalTermsTrain,
+  method = "glmnet",
+  trControl = trainControl(
+    method = "cv",
+    number = 3,
+    verboseIter = TRUE
+  ),
+  na.action = na.pass
+)
+
+saveRDS(glmnet_clf, "Models/glmnet.rds")
+
+glmnet_pred <- data.frame(
+  id = test$id,
+  name = predict(glmnet_clf, as.matrix(finalTermsTest), type = "raw")
+)
+
+write_csv(glmnet_pred, "Resultado/glmnet.csv")
+
+
+## Redes Neuronales
+## Trabajaremos la red Neuronal en Google, pero antes, preparamos la data Colab
+
+
+
+
