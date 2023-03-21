@@ -202,3 +202,189 @@ plot_trainWords |>
 ggsave("Views/Top_20_TFIDF.png", width = 1500, height = 1500, units = "px")
 
 
+## Palabras más importantes por político
+
+create_TFIDF_author_plot <- function(author, fill) {
+  plot_trainWords |> 
+    filter(name == author) |> 
+    top_n(20) |> 
+    ggplot(aes(word, tf_idf)) +
+    geom_col(fill = fill) +
+    labs(
+      title = paste("Top 20 palabras con mayor TF-IDF para", author),
+      x = "Palabra",
+      y = "TF-IDF") +
+    coord_flip() +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+
+create_TFIDF_author_plot("Lopez", "#006d2c")
+ggsave("Views/Top_20_TFIDF_Lopez.png", width = 1500, height = 1500, units = "px")
+create_TFIDF_author_plot("Petro", "#54278f")
+ggsave("Views/Top_20_TFIDF_Petro.png", width = 1500, height = 1500, units = "px")
+create_TFIDF_author_plot("Uribe", "#08519c")
+ggsave("Views/Top_20_TFIDF_Uribe.png", width = 1500, height = 1500, units = "px")
+
+
+#Nos parece interesante ver la combinación de palabras para los políticos, no lo agregamos al documento pero 
+#va en Anexos
+
+### Bigrams ----
+
+create_bigram_author_plot <- function(author, fill) {
+  train  |> 
+    filter(name == author) |> 
+    unnest_tokens(bigram, text, token = "ngrams", n = 2) |> 
+    separate(bigram, c("word1", "word2"), sep = " ") |>
+    filter(!word1 %in% stopwords(kind = "es"),
+           !word2 %in% stopwords(kind = "es")) |>
+    unite(bigramWord, word1, word2, sep = " ") |>
+    group_by(bigramWord) |>
+    tally() |>
+    ungroup() |>
+    arrange(desc(n)) |>
+    mutate(bigramWord = reorder(bigramWord,n)) |>
+    head(10) |>
+    ggplot(aes(x = bigramWord,y = n)) +
+    geom_bar(stat='identity', fill = fill) +
+    geom_text(aes(x = bigramWord, y = 1, label = n),
+              hjust=0, vjust=.5, size = 4, color = "white") +
+    labs(x = 'Bigramas', 
+         y = 'Conteo', 
+         title = paste('Conteo de Bigramas más comunes para', author)) +
+    coord_flip() + 
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+
+create_bigram_author_plot("Lopez", "#006d2c")
+ggsave("Views/Top_10_bigramas_Lopez.png", width = 1500, height = 1500, units = "px")
+create_bigram_author_plot("Petro", "#54278f")
+ggsave("Views/Top_10_bigramas_Petro.png", width = 1500, height = 1500, units = "px")
+create_bigram_author_plot("Uribe", "#08519c")
+ggsave("Views/Top_10_bigramas_Uribe.png", width = 1500, height = 1500, units = "px")
+
+
+### Trigrams ----
+
+create_trigram_author_plot <- function(author, fill) {
+  train |>
+    filter(name == author) |> 
+    unnest_tokens(bigram, text, token = "ngrams", n = 3) |>
+    separate(bigram, c("word1", "word2", "word3"), sep = " ") |>
+    filter(!word1 %in% stopwords(kind = "es"),
+           !word2 %in% stopwords(kind = "es"),
+           !word3 %in% stopwords(kind = "es")) |>
+    drop_na() |> 
+    unite(trigramWord, word1, word2, word3, sep = " ") |>
+    group_by(trigramWord) |>
+    tally() |>
+    ungroup() |>
+    arrange(desc(n)) |>
+    mutate(trigramWord = reorder(trigramWord,n)) |>
+    head(10) |>
+    ggplot(aes(x = trigramWord,y = n)) +
+    geom_bar(stat='identity', fill = fill) +
+    geom_text(aes(x = trigramWord, y = 1, label = n),
+              hjust=0, vjust=.5, size = 4, color = "white") +
+    labs(x = 'Trigramas', 
+         y = 'Conteo', 
+         title = paste('Conteo de Trigramas más\ncomunes para', author)) +
+    coord_flip() + 
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+
+create_trigram_author_plot("Lopez", "#006d2c")
+ggsave("Views/Top_10_trigramas_Lopez.png", width = 1500, height = 1500, units = "px")
+create_trigram_author_plot("Petro", "#54278f")
+ggsave("Views/Top_10_trigramas_Petro.png", width = 1500, height = 1500, units = "px")
+create_trigram_author_plot("Uribe", "#08519c")
+ggsave("Views/Top_10_trigramas_Uribe.png", width = 1500, height = 1500, units = "px")
+
+
+### Análisis de sentimientos
+visualize_sentiments <- function(SCWords) {
+  
+  SCWords_sentiments <- SCWords |> 
+    mutate(score = get_sentiment(word, method = "nrc", language = "spanish")) |> 
+    group_by(name) |> 
+    summarize(score = sum(score * n) / sum(n)) |> 
+    arrange(desc(score))
+  
+  SCWords_sentiments |> 
+    mutate(author = reorder(name, score)) |> 
+    ggplot(aes(name, score, fill = score>0)) +
+    geom_col(show.legend = TRUE) +
+    coord_flip() +
+    labs(
+      y = "Puntaje",
+      x = "Autor",
+      title = "Puntaje promedio de sentimientos\npor autor",
+      caption = "Basado en el dataset nrc"
+    ) +
+    theme_minimal()+
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+
+visualize_sentiments(trainWords)
+
+ggsave("View/score_sentiments.png", width = 1500, height = 1500, units = "px")
+
+create_bar_chart_positive_words <- function(Words, author){
+  
+  contributions <- Words |> 
+    filter(name == author) |> 
+    unnest_tokens(word, text) |> 
+    count(name, word, sort = TRUE) |> 
+    ungroup() |> 
+    mutate(score = get_sentiment(word, method = "nrc", language = "spanish")) |> 
+    group_by(word) |> 
+    summarize(occurences = n(),
+              contribution = sum(score))
+  
+  contributions |> 
+    top_n(20, abs(contribution)) |> 
+    mutate(word = reorder(word, contribution)) |> 
+    head(20) |> 
+    ggplot(aes(word, contribution, fill = contribution > 0)) +
+    geom_col(show.legend = FALSE) +
+    labs(
+      title = paste("Top 20 de palabras con mayor\ncontribución al puntaje de\nsentimientos para", author),
+      x = "Palabra",
+      y = "Contribución"
+    ) +
+    coord_flip() +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      plot.title.position = "plot",
+      plot.background = element_rect(fill = "white", color = "white")
+    )
+}
+
+create_bar_chart_positive_words(train, "Lopez")
+ggsave("View/Top_20_contribuciones_sentimientos_Lopez.png", width = 1500, height = 1500, units = "px")
+create_bar_chart_positive_words(train, "Uribe")
+ggsave("View/Top_20_contribuciones_sentimientos_Uribe.png", width = 1500, height = 1500, units = "px")
+create_bar_chart_positive_words(train, "Petro")
+ggsave("View/Top_20_contribuciones_sentimientos_Petro.png", width = 1500, height = 1500, units = "px")
+
+
