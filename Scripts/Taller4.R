@@ -491,8 +491,8 @@ levels(finalTermsTrain$name) <- make.names(unique(finalTermsTrain$name))
 
 ## Empezamos a ejecutar modelos:
 
-
 ### Random Forest ----
+
 rf_clf <- caret::train(
   name ~ .,
   data = finalTermsTrain,
@@ -504,14 +504,14 @@ rf_clf <- caret::train(
   )
 )
 
-# saveRDS(rf_clf, "Models/random_forest.rds")
+# saveRDS(rf_clf, "Stores/random_forest.rds")
 
 rf_pred <- data.frame(
   id = test$id,
   name = predict(rf_clf, finalTermsTest, type = "raw")
 )
 
-# write_csv(rf_pred, "Resultado/random_forest.csv")
+# write_csv(rf_pred, "Stores/random_forest.csv")
 
 ## XGBoost
 
@@ -527,14 +527,14 @@ xgb_clf <- caret::train(
   na.action = na.pass
 )
 
-saveRDS(xgb_clf, "Models/xgboost.rds")
+saveRDS(xgb_clf, "Stores/xgboost.rds")
 
 xgb_pred <- data.frame(
   id = test$id,
   name = predict(xgb_clf, finalTermsTest, type = "raw")
 )
 
-# write_csv(xgb_pred, "Resultado/xgboost.csv")
+# write_csv(xgb_pred, "Stores/xgboost.csv")
 
 ## Naive Bayes
 
@@ -550,16 +550,21 @@ nb_clf <- caret::train(
   na.action = na.pass
 )
 
-saveRDS(nb_clf, "Models/naive_bayes.rds")
+saveRDS(nb_clf, "Stores/naive_bayes.rds")
 
 nb_pred <- data.frame(
   id = test$id,
   name = predict(nb_clf, finalTermsTest, type = "raw")
 )
 
-write_csv(nb_pred, "Resultado/naive_bayes.csv")
+write_csv(nb_pred, "Stores/naive_bayes.csv")
 
 ## Multinomial Logistic Regression Model
+
+glmnet_grid <- expand.grid(
+  alpha = seq(0, 1, 0.1),
+  lambda = c(0, 0.001, 0.01, 0.1, 1)
+)
 
 glmnet_clf <- caret::train(
   name ~ .,
@@ -570,22 +575,53 @@ glmnet_clf <- caret::train(
     number = 3,
     verboseIter = TRUE
   ),
+  tuneGrid = glmnet_grid,
   na.action = na.pass
 )
 
-saveRDS(glmnet_clf, "Models/glmnet.rds")
+saveRDS(glmnet_clf, "Stores/glmnet.rds")
 
 glmnet_pred <- data.frame(
   id = test$id,
   name = predict(glmnet_clf, as.matrix(finalTermsTest), type = "raw")
 )
 
-write_csv(glmnet_pred, "Resultado/glmnet.csv")
+write_csv(glmnet_pred, "Stores/glmnet.csv")
 
 
 ## Redes Neuronales
 ## Trabajaremos la red Neuronal en Google, pero antes, preparamos la data Colab
 
+tf_idf_reducido <- finalTermsTrain
+tf_idf_reducido <- subset(tf_idf_reducido, select = -name)
+
+data_clean <- finalTermsTrain
+data_clean <- subset(data_clean, select = name)
+
+data_clean$name <- ifelse(data_clean$name == "Lopez", 0, 
+                          ifelse(data_clean$name == "Petro", 1, 
+                                 ifelse(data_clean$name == "Uribe", 2, NA)))
+
+
+save(data_clean, tf_idf_reducido, finalTermsTest, test,
+     file = "Stores/datos_para_modelar.RData")
+
+
+## Ahora cargamos el R data proveniente de Colab
+
+load("Stores/mis_datos.Rdata")
+
+#Ahora arreglamos la base para Kaggle
+
+names(PrediccionRN)[1] <- "id"
+names(PrediccionRN)[2] <- "name"
+
+PrediccionRN$name <- ifelse(PrediccionRN$name == 0,"Lopez", 
+                          ifelse(PrediccionRN$name == 1, "Petro", 
+                                 ifelse(PrediccionRN$name == 2, "Uribe", NA)))
+
+
+write.table(PrediccionRN, file = "Stores/PredRN.csv.csv", sep = ",", row.names = FALSE)
 
 
 
